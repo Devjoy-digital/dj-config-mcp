@@ -1,5 +1,5 @@
 {
-  "name": "mcp-config",
+  "name": "@devjoy-digital/mcp-config",
   "version": "1.0.0",
   "main": "src/index.js",
   "bin": {
@@ -8,12 +8,15 @@
   "scripts": {
     "test": "jest"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Devjoy-digital/mcp-config.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Devjoy Digital",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/Devjoy-digital/mcp-config/issues"
