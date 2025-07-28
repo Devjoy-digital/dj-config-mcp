@@ -55,6 +55,66 @@
       }
     }
   },
+  "postgres": {
+    "properties": {
+      "host": {
+        "doc": "PostgreSQL server hostname or IP address.",
+        "format": "String",
+        "default": "localhost",
+        "env": "POSTGRES_HOST",
+        "sensitive": false
+      },
+      "port": {
+        "doc": "PostgreSQL server port number.",
+        "format": "port",
+        "default": 5432,
+        "env": "POSTGRES_PORT",
+        "sensitive": false
+      },
+      "database": {
+        "doc": "PostgreSQL database name to connect to.",
+        "format": "String",
+        "default": "postgres",
+        "env": "POSTGRES_DB",
+        "sensitive": false
+      },
+      "username": {
+        "doc": "PostgreSQL username for authentication.",
+        "format": "String",
+        "default": "postgres",
+        "env": "POSTGRES_USER",
+        "sensitive": false
+      },
+      "password": {
+        "doc": "PostgreSQL password for authentication.",
+        "format": "String",
+        "default": "",
+        "env": "POSTGRES_PASSWORD",
+        "sensitive": true
+      },
+      "ssl": {
+        "doc": "Enable SSL connection to PostgreSQL server.",
+        "format": "Boolean",
+        "default": false,
+        "env": "POSTGRES_SSL",
+        "sensitive": false
+      },
+      "connectionTimeout": {
+        "doc": "Connection timeout in milliseconds.",
+        "format": "Number",
+        "default": 10000,
+        "env": "POSTGRES_CONNECTION_TIMEOUT",
+        "sensitive": false
+      },
+      "maxConnections": {
+        "doc": "Maximum number of concurrent connections.",
+        "format": "Number",
+        "default": 10,
+        "env": "POSTGRES_MAX_CONNECTIONS",
+        "sensitive": false
+      }
+    }
+  },
   "clients": {
     "properties": {
       "selected": {

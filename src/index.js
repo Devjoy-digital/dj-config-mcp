@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name('mcp-config')
   .description('CLI tool for managing MCP server configurations')
-  .version('1.0.0');
+  .version('1.3.0');
 
 // --- Schema Discovery and Loading ---
 let configSchema;
@@ -62,6 +62,13 @@ function loadConfigSchema() {
 
 // Load the schema when the script starts
 loadConfigSchema();
+
+// Function to automatically detect if a key contains sensitive terms
+function isSensitiveKey(key) {
+  const sensitiveTerms = ['password', 'secret', 'key', 'token', 'auth', 'credential', 'private'];
+  const keyLower = key.toLowerCase();
+  return sensitiveTerms.some(term => keyLower.includes(term));
+}
 
 // Function to save sensitive data to .env
 function saveSecretToEnv(key, value) {
@@ -127,8 +134,25 @@ function getConfigValue(key) {
   }
 }
 
+// Function to check if global config exists
+function hasGlobalConfig() {
+  const globalConfigPaths = [
+    path.resolve(require('os').homedir(), '.mcp-config', 'global.json'),
+    path.resolve(require('os').homedir(), '.config', 'mcp-config', 'global.json'),
+    '/etc/mcp-config/global.json'
+  ];
+  
+  return globalConfigPaths.some(configPath => fs.existsSync(configPath));
+}
+
 // Function to save non-sensitive data to config file
-function saveNonSecretToConfig(key, value) {
+function saveNonSecretToConfig(key, value, allowGlobalOverride = false) {
+  // Check for global config protection
+  if (hasGlobalConfig() && !allowGlobalOverride) {
+    console.log(`⚠️  Global configuration detected. Skipping update of ${key}. Use -g flag to override global configuration.`);
+    return;
+  }
+
   const configDir = path.resolve(process.cwd(), 'config');
   const configPath = path.resolve(configDir, 'default.json');
 
@@ -216,13 +240,127 @@ function distributeConfigToClients(selectedClients) {
 }
 
 
+// Helper function to check for missing sensitive values
+function getMissingSensitiveValues() {
+  const schemaPaths = getAllSchemaPaths(configSchema.getSchema());
+  const missing = [];
+
+  for (const keyPath of schemaPaths) {
+    const schemaDefinition = configSchema.getSchema();
+    let currentLevel = schemaDefinition.properties;
+    let isSensitive = false;
+    let doc = '';
+
+    const parts = keyPath.split('.');
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!currentLevel || !currentLevel[part]) {
+        currentLevel = undefined;
+        break;
+      }
+
+      if (i === parts.length - 1) {
+        isSensitive = currentLevel[part].sensitive || isSensitiveKey(keyPath);
+        doc = currentLevel[part].doc || '';
+      } else {
+        if (currentLevel[part].properties) {
+          currentLevel = currentLevel[part].properties;
+        } else {
+          currentLevel = undefined;
+          break;
+        }
+      }
+    }
+
+    if (currentLevel !== undefined && isSensitive) {
+      const currentValue = getConfigValue(keyPath).value;
+      if (!currentValue || currentValue === '') {
+        missing.push({ keyPath, doc });
+      }
+    }
+  }
+
+  return missing;
+}
+
+// Config Secrets command - specifically for handling missing sensitive values
+program
+  .command('config-secrets')
+  .description('Configure missing sensitive values only.')
+  .action(async () => {
+    console.log('Checking for missing sensitive configuration values...');
+
+    const missingSensitive = getMissingSensitiveValues();
+    
+    if (missingSensitive.length === 0) {
+      console.log('✅ All sensitive values are already configured.');
+      return;
+    }
+
+    console.log('\n🔒 Missing sensitive configuration values detected:');
+    console.log('These values will be stored securely in your .env file.\n');
+    
+    for (const { keyPath, doc } of missingSensitive) {
+      const readline = require('readline').createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      const promptMessage = `${doc} (${keyPath}): `;
+      const answer = await new Promise(resolve => {
+        readline.question(promptMessage, input => {
+          readline.close();
+          resolve(input);
+        });
+      });
+
+      if (answer && answer.trim() !== '') {
+        saveSecretToEnv(keyPath.toUpperCase().replace(/\./g, '_'), answer.trim());
+      }
+    }
+    
+    console.log('\n✅ Sensitive values configured securely.');
+  });
+
 // Config command
 program
   .command('config')
+  .option('-g, --global', 'Allow modification of global configuration')
   .description('Guides users through the configuration process.')
-  .action(async () => {
+  .action(async (options) => {
     console.log('Starting MCP-Config setup...');
 
+    // First, check for missing sensitive values
+    const missingSensitive = getMissingSensitiveValues();
+    
+    if (missingSensitive.length > 0) {
+      console.log('\n🔒 Missing sensitive configuration values detected:');
+      console.log('These values will be stored securely in your .env file.\n');
+      
+      for (const { keyPath, doc } of missingSensitive) {
+        const readline = require('readline').createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+
+        const promptMessage = `${doc} (${keyPath}): `;
+        const answer = await new Promise(resolve => {
+          readline.question(promptMessage, input => {
+            readline.close();
+            resolve(input);
+          });
+        });
+
+        if (answer && answer.trim() !== '') {
+          saveSecretToEnv(keyPath.toUpperCase().replace(/\./g, '_'), answer.trim());
+        }
+      }
+      
+      console.log('\n✅ Sensitive values configured securely.\n');
+    }
+
+    // Now proceed with the full configuration for all values (including non-sensitive)
+    console.log('Configuring all remaining values...\n');
     const schemaPaths = getAllSchemaPaths(configSchema.getSchema());
 
     for (const keyPath of schemaPaths) {
@@ -241,7 +379,7 @@ program
         }
 
         if (i === parts.length - 1) { // This is the leaf node
-          isSensitive = currentLevel[part].sensitive || false;
+          isSensitive = currentLevel[part].sensitive || isSensitiveKey(keyPath);
           doc = currentLevel[part].doc || '';
           defaultValue = currentLevel[part].default !== undefined ? currentLevel[part].default : '';
         } else { // This is an intermediate node
@@ -258,6 +396,12 @@ program
       }
 
       const currentValue = getConfigValue(keyPath).value;
+      
+      // Skip sensitive values that were already handled above
+      if (isSensitive && currentValue && currentValue !== '') {
+        continue;
+      }
+      
       const promptMessage = `${doc} (${keyPath}) [Current: ${currentValue !== undefined ? currentValue : 'Not set'}]: `;
 
       const readline = require('readline').createInterface({
@@ -278,7 +422,7 @@ program
         if (isSensitive) {
           saveSecretToEnv(keyPath.toUpperCase().replace(/\./g, '_'), valueToSave);
         } else {
-          saveNonSecretToConfig(keyPath, valueToSave);
+          saveNonSecretToConfig(keyPath, valueToSave, options.global);
         }
       }
     }
@@ -303,7 +447,7 @@ program
     let finalSelectedClients = currentClients;
     if (clientAnswer) {
       const newSelectedClients = clientAnswer.split(',').map(c => c.trim()).filter(c => supportedClients.includes(c));
-      saveNonSecretToConfig('clients.selected', newSelectedClients);
+      saveNonSecretToConfig('clients.selected', newSelectedClients, options.global);
       finalSelectedClients = newSelectedClients;
     }
 
@@ -338,8 +482,9 @@ program
 // Update Config command
 program
   .command('update-config [key] [value]')
+  .option('-g, --global', 'Allow modification of global configuration')
   .description('Modifies existing configuration values.')
-  .action(async (key, value) => {
+  .action(async (key, value, options) => {
     if (!key) {
       console.error('Please provide a configuration key to update.');
       return;
@@ -359,7 +504,7 @@ program
         return;
       }
       if (i === parts.length - 1) { // Last part of the path
-        isSensitive = currentLevel[part].sensitive || false;
+        isSensitive = currentLevel[part].sensitive || isSensitiveKey(key);
         doc = currentLevel[part].doc || '';
         defaultValue = currentLevel[part].default !== undefined ? currentLevel[part].default : '';
       } else {
@@ -391,7 +536,7 @@ program
       if (isSensitive) {
         saveSecretToEnv(key.toUpperCase().replace(/\./g, '_'), valueToSave);
       } else {
-        saveNonSecretToConfig(key, valueToSave);
+        saveNonSecretToConfig(key, valueToSave, options.global);
       }
     }
 
