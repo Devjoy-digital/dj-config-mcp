@@ -1,0 +1,45 @@
+# Product Requirements Document (PRD)
+
+**Product Name:** MCP-Config
+
+---
+
+## Overview:
+This tool aims to significantly simplify the configuration process for Model Context Protocol (MCP) servers. It will provide users with an intuitive way to manage server settings and enable seamless sharing of these configurations across various client applications. The primary goal is to ensure a streamlined and user-friendly experience for setting up and maintaining MCP server instances.
+
+### Features:
+
+#### 1. Config Command
+This command will guide users through the configuration process.
+
+* It will prompt users for necessary configuration values.
+* The tool will be smart enough to detect sensitive information (e.g., API keys, tokens, passwords).
+* Secrets will be automatically saved as environment variables for enhanced security.
+* All other non-secret configuration settings will be saved to a standard configuration file.
+* When a user initiates a `config` command or an `update config` command, the tool will first check if any target clients have been previously specified.
+* If no target clients are specified, the tool will prompt the user to select the clients they intend to use.
+* Initially supported target clients include:
+    * VS Code
+    * Claude Code
+    * Claude Desktop
+    * Cursor
+
+#### 2. Get Config Command
+This command allows users to retrieve and inspect their server configurations.
+
+* If called without a specific key name, it will fetch and display all configuration items.
+* For each configuration item, the tool will indicate where it is stored (e.g., in an environment variable, or a specific configuration file).
+* If called with a specific key name, it will display only the value for that particular configuration item and its storage location.
+
+#### 3. Update Config Command
+This command provides functionality to modify existing configuration values.
+
+* Users will be able to update specific configuration items.
+* Similar to the `config` command, it will adhere to the "smart configuration placement" logic, ensuring secrets are handled as environment variables and other settings are placed in standard configuration files.
+* It will also perform the target client check as described in the Config Command feature, prompting the user for clients if none are set.
+
+#### 4. Client Configuration Sharing
+This feature enables the tool to facilitate configuration for other applications.
+
+* The tool will be smart enough to place the configuration files in the specific locations where the selected client tools expect them.
+* This ensures that the consumer of the MCP server (e.g., a specific AI tool or IDE) can readily access the necessary configuration.

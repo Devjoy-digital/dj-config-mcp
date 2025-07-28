@@ -1,0 +1,33 @@
+{
+  "name": "mcp-config",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "bin": {
+    "mcp-config": "src/index.js"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Devjoy-digital/mcp-config.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Devjoy-digital/mcp-config/issues"
+  },
+  "homepage": "https://github.com/Devjoy-digital/mcp-config#readme",
+  "description": "",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "config": "^4.1.0",
+    "convict": "^6.2.4",
+    "dotenv": "^17.2.1",
+    "yargs": "^18.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.0.5"
+  }
+}
