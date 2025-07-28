@@ -44,7 +44,9 @@ function loadConfigSchema() {
   }
 
   if (!fs.existsSync(schemaFilePath)) {
-    throw new Error(`Configuration schema file not found at ${schemaFilePath}. Please create a schema file (e.g., template-config.json) or specify its path in package.json under "mcpConfig.schema".`);
+    console.error(`Error: Configuration schema file not found at ${schemaFilePath}.`);
+    console.error('Please create a schema file (e.g., template-config.json) or specify its path in package.json under "mcpConfig.schema".');
+    process.exit(1);
   }
 
   try {
@@ -53,128 +55,65 @@ function loadConfigSchema() {
     loadedSchemaPath = schemaFilePath;
     console.log(`Successfully loaded configuration schema from: ${loadedSchemaPath}`);
   } catch (e) {
-    throw new Error(`Failed to parse configuration schema file at ${schemaFilePath}: ${e.message}`);
+    console.error(`Error: Failed to parse configuration schema file at ${schemaFilePath}: ${e.message}`);
+    process.exit(1);
   }
 }
 
 // Load the schema when the script starts
-try {
-  loadConfigSchema();
-} catch (error) {
-  console.error(`Error: ${error.message}`);
-  console.error('Please fix the schema configuration before running commands.');
-  // Set a flag to prevent command execution
-  configSchema = null;
-}
-
-// Helper function to check if schema is loaded
-function ensureSchemaLoaded() {
-  if (!configSchema) {
-    console.error('Error: Configuration schema not loaded. Please fix schema issues before running commands.');
-    return false;
-  }
-  return true;
-}
-
-// Utility function for prompting user input with proper cleanup
-async function promptUser(message) {
-  const readline = require('readline').createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  try {
-    return await new Promise(resolve => {
-      readline.question(message, input => {
-        resolve(input);
-      });
-    });
-  } finally {
-    readline.close();
-  }
-}
-
-// Helper function to get schema property information (moved up to be available early)
-function getSchemaPropertyInfo(keyPath) {
-  if (!configSchema) {
-    return null;
-  }
-  
-  const schemaDefinition = configSchema.getSchema();
-  let currentLevel = schemaDefinition._cvtProperties || schemaDefinition.properties;
-  let isSensitive = false;
-  let doc = '';
-  let defaultValue = '';
-
-  const parts = keyPath.split('.');
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (!currentLevel || !currentLevel[part]) {
-      return null; // Path not found
-    }
-
-    if (i === parts.length - 1) { // This is the leaf node
-      isSensitive = currentLevel[part].sensitive || false;
-      doc = currentLevel[part].doc || '';
-      defaultValue = currentLevel[part].default !== undefined ? currentLevel[part].default : '';
-    } else { // This is an intermediate node
-      // Handle convict nested structure
-      if (currentLevel[part]._cvtProperties && currentLevel[part]._cvtProperties.properties) {
-        currentLevel = currentLevel[part]._cvtProperties.properties._cvtProperties;
-      } else if (currentLevel[part].properties) {
-        currentLevel = currentLevel[part].properties;
-      } else {
-        return null; // Intermediate node does not have further properties
-      }
-    }
-  }
-
-  return { isSensitive, doc, defaultValue };
-}
+loadConfigSchema();
 
 // Function to save sensitive data to .env
 function saveSecretToEnv(key, value) {
   const envPath = path.resolve(process.cwd(), '.env');
   let envContent = '';
-  
-  try {
-    if (fs.existsSync(envPath)) {
-      envContent = fs.readFileSync(envPath, 'utf8');
-    }
-
-    // Escape special regex characters in the key
-    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`^${escapedKey}=.*`, 'm');
-    
-    if (envContent.match(regex)) {
-      envContent = envContent.replace(regex, `${key}=${value}`);
-    } else {
-      envContent += `\n${key}=${value}`;
-    }
-    
-    fs.writeFileSync(envPath, envContent.trim() + '\n');
-    console.log(`🔐 Secret ${key} saved to .env file as environment variable.`);
-  } catch (error) {
-    console.error(`Error saving secret to .env file: ${error.message}`);
-    throw new Error(`Failed to save secret ${key} to environment file`);
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf8');
   }
+
+  const regex = new RegExp(`^${key}=.*`, 'm');
+  if (envContent.match(regex)) {
+    envContent = envContent.replace(regex, `${key}=${value}`);
+  } else {
+    envContent += `\n${key}=${value}`;
+  }
+  fs.writeFileSync(envPath, envContent.trim() + '\n');
+  console.log(`Secret ${key} saved to .env file.`);
 }
 
 // Function to get configuration value and its source
 function getConfigValue(key) {
+  const configPath = path.resolve(process.cwd(), 'config/default.json');
+  let configData = {};
+  if (fs.existsSync(configPath)) {
+    configData = require(configPath);
+  }
+
   // Check environment variables first
-  const envKey = key.toUpperCase().replace(/\./g, '_');
-  if (process.env[envKey]) {
-    return { value: process.env[envKey], source: 'Environment Variable' };
+  if (process.env[key]) {
+    return { value: process.env[key], source: 'Environment Variable' };
   }
 
   // Check convict config (which also loads from config files)
   try {
     const value = configSchema.get(key);
-    
     // Determine if the key is marked as sensitive in the schema
-    const propertyInfo = getSchemaPropertyInfo(key);
-    const isSensitive = propertyInfo ? propertyInfo.isSensitive : false;
+    const schemaDefinition = configSchema.getSchema();
+    let currentLevel = schemaDefinition.properties;
+    let isSensitive = false;
+    const parts = key.split('.');
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!currentLevel || !currentLevel[part]) {
+        isSensitive = false; // Path not found in schema, assume not sensitive
+        break;
+      }
+      if (i === parts.length - 1) {
+        isSensitive = currentLevel[part].sensitive || false;
+      } else {
+        currentLevel = currentLevel[part].properties;
+      }
+    }
 
     if (isSensitive) {
       // If it's sensitive and found via config.get, it means it was loaded from a config file,
@@ -183,7 +122,7 @@ function getConfigValue(key) {
     }
     return { value: value, source: 'Config File' };
   } catch (e) {
-    // If convict.get throws, it means the key is not defined in the schema or not configured
+    // If convict.get throws, it means the key is not defined in the schema
     return { value: undefined, source: 'Not Found' };
   }
 }
@@ -193,74 +132,48 @@ function saveNonSecretToConfig(key, value) {
   const configDir = path.resolve(process.cwd(), 'config');
   const configPath = path.resolve(configDir, 'default.json');
 
-  try {
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
-    }
-
-    let configData = {};
-    if (fs.existsSync(configPath)) {
-      try {
-        configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      } catch (e) {
-        console.warn(`Warning: Error parsing existing config file ${configPath}: ${e.message}`);
-        console.warn('Starting with empty configuration object.');
-        configData = {};
-      }
-    }
-
-    // Helper to set nested property
-    const setNested = (obj, pathArr, val) => {
-      let current = obj;
-      for (let i = 0; i < pathArr.length - 1; i++) {
-        if (!current[pathArr[i]] || typeof current[pathArr[i]] !== 'object') {
-          current[pathArr[i]] = {};
-        }
-        current = current[pathArr[i]];
-      }
-      current[pathArr[pathArr.length - 1]] = val;
-    };
-
-    const keyParts = key.split('.');
-    setNested(configData, keyParts, value);
-
-    fs.writeFileSync(configPath, JSON.stringify(configData, null, 2));
-    console.log(`Non-secret ${key} saved to config/default.json.`);
-  } catch (error) {
-    console.error(`Error saving configuration: ${error.message}`);
-    throw new Error(`Failed to save configuration ${key} to config file`);
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
   }
+
+  let configData = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (e) {
+      console.error(`Error parsing config file ${configPath}:`, e.message);
+      // If parsing fails, initialize with empty object to prevent crash
+      configData = {};
+    }
+  }
+
+  // Helper to set nested property
+  const setNested = (obj, pathArr, val) => {
+    let current = obj;
+    for (let i = 0; i < pathArr.length - 1; i++) {
+      if (!current[pathArr[i]]) {
+        current[pathArr[i]] = {};
+      }
+      current = current[pathArr[i]];
+    }
+    current[pathArr[pathArr.length - 1]] = val;
+  };
+
+  const keyParts = key.split('.');
+  setNested(configData, keyParts, value);
+
+  fs.writeFileSync(configPath, JSON.stringify(configData, null, 2));
+  console.log(`Non-secret ${key} saved to config/default.json.`);
 }
 
 // Helper to get all paths from a convict schema
 function getAllSchemaPaths(schema, currentPath = '') {
   let paths = [];
-  
-  // Handle convict's _cvtProperties wrapper
-  const properties = schema._cvtProperties || schema.properties || schema;
-  
-  for (const key in properties) {
-    // Skip convict internal properties
-    if (key.startsWith('_')) {
-      continue;
-    }
-    
+  for (const key in schema.properties) {
     const newPath = currentPath ? `${currentPath}.${key}` : key;
-    const property = properties[key];
-    
-    // Check if this is a nested object with properties
-    const hasNestedProps = (property._cvtProperties && property._cvtProperties.properties && property._cvtProperties.properties._cvtProperties) ||
-                          (property.properties && Object.keys(property.properties).length > 0);
-    
-    if (hasNestedProps) {
-      // Handle convict nested structure
-      if (property._cvtProperties && property._cvtProperties.properties) {
-        paths = paths.concat(getAllSchemaPaths(property._cvtProperties.properties, newPath));
-      } else {
-        paths = paths.concat(getAllSchemaPaths(property, newPath));
-      }
+    if (schema.properties[key].properties) {
+      paths = paths.concat(getAllSchemaPaths(schema.properties[key].properties, newPath));
     } else {
-      // This is a leaf node, add it to paths
       paths.push(newPath);
     }
   }
@@ -275,226 +188,31 @@ function distributeConfigToClients(selectedClients) {
   }
 
   console.log('Distributing configurations to selected clients...');
-  
-  try {
-    const allConfig = configSchema.getProperties(); // Get all current config values
+  const allConfig = configSchema.getProperties(); // Get all current config values
 
-    selectedClients.forEach(clientName => {
-      const clientInfo = clientMappings[clientName];
-      if (!clientInfo) {
-        console.warn(`Warning: No mapping found for client "${clientName}". Skipping.`);
-        return;
-      }
+  selectedClients.forEach(clientName => {
+    const clientInfo = clientMappings[clientName];
+    if (clientInfo) {
+      const clientConfigPath = clientInfo.configPath;
+      const clientConfigDir = path.dirname(clientConfigPath);
 
       try {
-        const clientConfigPath = clientInfo.configPath;
-        const clientConfigDir = path.dirname(clientConfigPath);
-
-        // Ensure client config directory exists
         if (!fs.existsSync(clientConfigDir)) {
           fs.mkdirSync(clientConfigDir, { recursive: true });
           console.log(`Created directory for ${clientName}: ${clientConfigDir}`);
         }
 
-        // Replace sensitive data with environment variable references
-        const filteredConfig = replaceSensitiveDataWithEnvRefs(allConfig);
-        
-        fs.writeFileSync(clientConfigPath, JSON.stringify(filteredConfig, null, 2));
-        console.log(`✅ Successfully wrote configuration for ${clientName} to ${clientConfigPath}`);
-        console.log(`   (Secrets referenced as environment variables: \${VARIABLE_NAME})`);
-      } catch (error) {
-        console.error(`Error writing configuration for ${clientName}: ${error.message}`);
-        console.warn(`Skipping client ${clientName} due to configuration error.`);
+        // For now, we'll write the entire current config to the client's config file.
+        // In a more advanced scenario, we might filter or transform this based on client needs.
+        fs.writeFileSync(clientConfigPath, JSON.stringify(allConfig, null, 2));
+        console.log(`Successfully wrote configuration for ${clientName} to ${clientConfigPath}`);
+      } catch (e) {
+        console.error(`Error writing configuration for ${clientName} to ${clientConfigPath}: ${e.message}`);
       }
-    });
-  } catch (error) {
-    console.error(`Error distributing configurations: ${error.message}`);
-    throw new Error('Failed to distribute configurations to clients');
-  }
-}
-
-// Helper function to replace sensitive data with environment variable references
-function replaceSensitiveDataWithEnvRefs(config) {
-  const filtered = JSON.parse(JSON.stringify(config)); // Deep clone
-  
-  try {
-    const schema = configSchema.getSchema();
-    const sensitivePaths = getSensitivePaths(schema);
-    
-    // Replace sensitive values with environment variable references
-    sensitivePaths.forEach(path => {
-      const pathParts = path.split('.');
-      let current = filtered;
-      
-      for (let i = 0; i < pathParts.length - 1; i++) {
-        if (!current[pathParts[i]]) return;
-        current = current[pathParts[i]];
-      }
-      
-      const lastPart = pathParts[pathParts.length - 1];
-      if (current && current.hasOwnProperty(lastPart)) {
-        const envVar = path.toUpperCase().replace(/\./g, '_');
-        current[lastPart] = `\${${envVar}}`;
-      }
-    });
-  } catch (error) {
-    console.warn('Warning: Could not replace sensitive data with environment variable references');
-  }
-  
-  return filtered;
-}
-
-// Helper function to get all sensitive paths from schema
-function getSensitivePaths(schema, currentPath = '') {
-  let sensitivePaths = [];
-  
-  // Handle convict's _cvtProperties wrapper
-  const properties = schema._cvtProperties || schema.properties || schema;
-  
-  for (const key in properties) {
-    // Skip convict internal properties
-    if (key.startsWith('_')) {
-      continue;
-    }
-    
-    const newPath = currentPath ? `${currentPath}.${key}` : key;
-    const property = properties[key];
-    
-    if (property.sensitive === true) {
-      sensitivePaths.push(newPath);
-    }
-    
-    // Check if this is a nested object with properties
-    const hasNestedProps = (property._cvtProperties && property._cvtProperties.properties && property._cvtProperties.properties._cvtProperties) ||
-                          (property.properties && Object.keys(property.properties).length > 0);
-    
-    if (hasNestedProps) {
-      // Handle convict nested structure
-      if (property._cvtProperties && property._cvtProperties.properties) {
-        sensitivePaths = sensitivePaths.concat(getSensitivePaths(property._cvtProperties.properties, newPath));
-      } else {
-        sensitivePaths = sensitivePaths.concat(getSensitivePaths(property, newPath));
-      }
-    }
-  }
-  
-  return sensitivePaths;
-}
-
-// Helper function to display environment variable information
-function displayEnvironmentVariableInfo() {
-  const schema = configSchema.getSchema();
-  const sensitivePaths = getSensitivePaths(schema);
-  
-  if (sensitivePaths.length === 0) {
-    return;
-  }
-  
-  console.log('\n📋 Environment Variables Information:');
-  console.log('─'.repeat(50));
-  
-  console.log('\n🔐 Sensitive configuration stored as environment variables:');
-  sensitivePaths.forEach(path => {
-    const envVar = path.toUpperCase().replace(/\./g, '_');
-    console.log(`  • ${path} → ${envVar}`);
-  });
-  
-  console.log('\n💡 How to update environment variables:');
-  console.log('\n🪟 Windows (Command Prompt):');
-  sensitivePaths.forEach(path => {
-    const envVar = path.toUpperCase().replace(/\./g, '_');
-    console.log(`  set ${envVar}=your_value_here`);
-  });
-  
-  console.log('\n🪟 Windows (PowerShell):');
-  sensitivePaths.forEach(path => {
-    const envVar = path.toUpperCase().replace(/\./g, '_');
-    console.log(`  $env:${envVar}="your_value_here"`);
-  });
-  
-  console.log('\n🐧 Linux/macOS:');
-  sensitivePaths.forEach(path => {
-    const envVar = path.toUpperCase().replace(/\./g, '_');
-    console.log(`  export ${envVar}="your_value_here"`);
-  });
-  
-  console.log('\n📄 Or add to your .env file (recommended):');
-  sensitivePaths.forEach(path => {
-    const envVar = path.toUpperCase().replace(/\./g, '_');
-    console.log(`  ${envVar}=your_value_here`);
-  });
-  
-  console.log('\n⚠️  Note: Client applications will use ${VARIABLE_NAME} references');
-  console.log('   Make sure your clients support environment variable expansion.');
-  console.log('─'.repeat(50));
-}
-
-
-// Helper function to process and save configuration value
-async function processConfigValue(keyPath) {
-  const propertyInfo = getSchemaPropertyInfo(keyPath);
-  if (!propertyInfo) {
-    return; // Skip invalid paths
-  }
-
-  const { isSensitive, doc, defaultValue } = propertyInfo;
-  const currentValue = getConfigValue(keyPath).value;
-  const promptMessage = `${doc} (${keyPath}) [Current: ${currentValue !== undefined ? currentValue : 'Not set'}]: `;
-
-  const answer = await promptUser(promptMessage);
-  const valueToSave = answer || defaultValue;
-
-  if (valueToSave !== '') {
-    try {
-      if (isSensitive) {
-        saveSecretToEnv(keyPath.toUpperCase().replace(/\./g, '_'), valueToSave);
-      } else {
-        saveNonSecretToConfig(keyPath, valueToSave);
-      }
-    } catch (error) {
-      console.error(`Failed to save ${keyPath}: ${error.message}`);
-      throw error;
-    }
-  }
-}
-
-// Helper function to handle client selection
-async function handleClientSelection() {
-  const supportedClients = Object.keys(clientMappings);
-  
-  let currentClients = [];
-  try {
-    currentClients = configSchema.get('clients.selected') || [];
-  } catch (e) {
-    // If clients.selected is not set yet, use empty array
-    currentClients = [];
-  }
-  
-  const clientPrompt = `Select target clients (comma-separated, e.g., VS Code, Cursor) [Available: ${supportedClients.join(', ')}] [Current: ${currentClients.join(', ')}]: `;
-
-  const clientAnswer = await promptUser(clientPrompt);
-
-  let finalSelectedClients = currentClients;
-  if (clientAnswer) {
-    const newSelectedClients = clientAnswer.split(',')
-      .map(c => c.trim())
-      .filter(c => {
-        if (!supportedClients.includes(c)) {
-          console.warn(`Warning: Unknown client "${c}" ignored. Supported clients: ${supportedClients.join(', ')}`);
-          return false;
-        }
-        return true;
-      });
-    
-    if (newSelectedClients.length > 0) {
-      saveNonSecretToConfig('clients.selected', newSelectedClients);
-      finalSelectedClients = newSelectedClients;
     } else {
-      console.warn('No valid clients selected. Keeping current client selection.');
+      console.warn(`Warning: No mapping found for client "${clientName}". Skipping.`);
     }
-  }
-
-  return finalSelectedClients;
+  });
 }
 
 
@@ -503,40 +221,94 @@ program
   .command('config')
   .description('Guides users through the configuration process.')
   .action(async () => {
-    if (!ensureSchemaLoaded()) {
-      return;
-    }
-    
     console.log('Starting MCP-Config setup...');
 
-    try {
-      const schemaPaths = getAllSchemaPaths(configSchema.getSchema());
+    const schemaPaths = getAllSchemaPaths(configSchema.getSchema());
 
-      // Process each configuration item
-      for (const keyPath of schemaPaths) {
-        await processConfigValue(keyPath);
+    for (const keyPath of schemaPaths) {
+      const schemaDefinition = configSchema.getSchema(); // Get the full schema definition
+      let currentLevel = schemaDefinition.properties; // Start at the top-level properties
+      let isSensitive = false;
+      let doc = '';
+      let defaultValue = '';
+
+      const parts = keyPath.split('.');
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (!currentLevel || !currentLevel[part]) {
+          currentLevel = undefined; // Path not found
+          break;
+        }
+
+        if (i === parts.length - 1) { // This is the leaf node
+          isSensitive = currentLevel[part].sensitive || false;
+          doc = currentLevel[part].doc || '';
+          defaultValue = currentLevel[part].default !== undefined ? currentLevel[part].default : '';
+        } else { // This is an intermediate node
+          if (currentLevel[part].properties) {
+            currentLevel = currentLevel[part].properties;
+          } else {
+            currentLevel = undefined; // Intermediate node does not have further properties
+            break;
+          }
+        }
+      }
+      if (currentLevel === undefined) { // If path was not fully resolved, skip this iteration
+        continue;
       }
 
-      // Handle client selection
-      const finalSelectedClients = await handleClientSelection();
+      const currentValue = getConfigValue(keyPath).value;
+      const promptMessage = `${doc} (${keyPath}) [Current: ${currentValue !== undefined ? currentValue : 'Not set'}]: `;
 
-      // Distribute configurations to selected clients
-      try {
-        distributeConfigToClients(finalSelectedClients);
-        console.log('Configuration process complete.');
-        
-        // Display environment variable information
-        displayEnvironmentVariableInfo();
-      } catch (error) {
-        console.error('Configuration completed but failed to distribute to some clients.');
-        console.error('You can manually run the command again to retry distribution.');
-        
-        // Still show environment variable info even if distribution failed
-        displayEnvironmentVariableInfo();
+      const readline = require('readline').createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      const answer = await new Promise(resolve => {
+        readline.question(promptMessage, input => {
+          readline.close();
+          resolve(input);
+        });
+      });
+
+      const valueToSave = answer || defaultValue;
+
+      if (valueToSave !== '') {
+        if (isSensitive) {
+          saveSecretToEnv(keyPath.toUpperCase().replace(/\./g, '_'), valueToSave);
+        } else {
+          saveNonSecretToConfig(keyPath, valueToSave);
+        }
       }
-    } catch (error) {
-      console.error(`Configuration failed: ${error.message}`);
     }
+
+    // Handle client selection
+    const supportedClients = Object.keys(clientMappings);
+    const readline = require('readline').createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    let currentClients = getConfigValue('clients.selected').value || [];
+    const clientPrompt = `Select target clients (comma-separated, e.g., VS Code, Cursor) [Available: ${supportedClients.join(', ')}] [Current: ${currentClients.join(', ')}]: `;
+
+    const clientAnswer = await new Promise(resolve => {
+      readline.question(clientPrompt, input => {
+        readline.close();
+        resolve(input);
+      });
+    });
+
+    let finalSelectedClients = currentClients;
+    if (clientAnswer) {
+      const newSelectedClients = clientAnswer.split(',').map(c => c.trim()).filter(c => supportedClients.includes(c));
+      saveNonSecretToConfig('clients.selected', newSelectedClients);
+      finalSelectedClients = newSelectedClients;
+    }
+
+    distributeConfigToClients(finalSelectedClients);
+    console.log('Configuration process complete.');
   });
 
 // Get Config command
@@ -544,9 +316,6 @@ program
   .command('get-config [key]')
   .description('Retrieves and inspects server configurations.')
   .action((key) => {
-    if (!ensureSchemaLoaded()) {
-      return;
-    }
     if (key) {
       const { value, source } = getConfigValue(key);
       if (value !== undefined) {
@@ -571,67 +340,84 @@ program
   .command('update-config [key] [value]')
   .description('Modifies existing configuration values.')
   .action(async (key, value) => {
-    if (!ensureSchemaLoaded()) {
-      return;
-    }
-    
     if (!key) {
       console.error('Please provide a configuration key to update.');
       return;
     }
 
-    try {
-      // Validate the key exists in schema
-      const propertyInfo = getSchemaPropertyInfo(key);
-      if (!propertyInfo) {
+    const schemaDefinition = configSchema.getSchema();
+    let currentLevel = schemaDefinition.properties;
+    let isSensitive = false;
+    let doc = '';
+    let defaultValue = '';
+
+    const parts = key.split('.');
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!currentLevel || !currentLevel[part]) {
         console.error(`Configuration key "${key}" not found in schema.`);
         return;
       }
-
-      const { isSensitive, doc, defaultValue } = propertyInfo;
-
-      let valueToSave = value;
-      if (value === undefined) { // If value not provided as argument, prompt user
-        const currentValue = getConfigValue(key).value;
-        const promptMessage = `${doc} (${key}) [Current: ${currentValue !== undefined ? currentValue : 'Not set'}]: `;
-        const input = await promptUser(promptMessage);
-        valueToSave = input || defaultValue;
-      }
-
-      if (valueToSave !== '') {
-        if (isSensitive) {
-          saveSecretToEnv(key.toUpperCase().replace(/\./g, '_'), valueToSave);
+      if (i === parts.length - 1) { // Last part of the path
+        isSensitive = currentLevel[part].sensitive || false;
+        doc = currentLevel[part].doc || '';
+        defaultValue = currentLevel[part].default !== undefined ? currentLevel[part].default : '';
+      } else {
+        if (currentLevel[part].properties) { // Only move deeper if the current part is an object with properties
+          currentLevel = currentLevel[part].properties;
         } else {
-          saveNonSecretToConfig(key, valueToSave);
+          console.error(`Configuration key "${key}" not found in schema (intermediate part is not an object).`);
+          return;
         }
       }
-
-      // Handle client selection
-      const finalSelectedClients = await handleClientSelection();
-
-      // Distribute configurations
-      try {
-        distributeConfigToClients(finalSelectedClients);
-        console.log('Configuration update complete.');
-        
-        // Display environment variable information if we updated a sensitive value
-        const updatedPropertyInfo = getSchemaPropertyInfo(key);
-        if (updatedPropertyInfo && updatedPropertyInfo.isSensitive) {
-          displayEnvironmentVariableInfo();
-        }
-      } catch (error) {
-        console.error('Configuration updated but failed to distribute to some clients.');
-        console.error('You can manually run the command again to retry distribution.');
-        
-        // Still show environment variable info for sensitive updates
-        const updatedPropertyInfo = getSchemaPropertyInfo(key);
-        if (updatedPropertyInfo && updatedPropertyInfo.isSensitive) {
-          displayEnvironmentVariableInfo();
-        }
-      }
-    } catch (error) {
-      console.error(`Configuration update failed: ${error.message}`);
     }
+
+    let valueToSave = value;
+    if (value === undefined) { // If value not provided as argument, prompt user
+      const readline = require('readline').createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+      const promptMessage = `${doc} (${key}) [Current: ${getConfigValue(key).value !== undefined ? getConfigValue(key).value : 'Not set'}]: `;
+      valueToSave = await new Promise(resolve => {
+        readline.question(promptMessage, input => {
+          readline.close();
+          resolve(input || defaultValue);
+        });
+      });
+    }
+
+    if (valueToSave !== '') {
+      if (isSensitive) {
+        saveSecretToEnv(key.toUpperCase().replace(/\./g, '_'), valueToSave);
+      } else {
+        saveNonSecretToConfig(key, valueToSave);
+      }
+    }
+
+    // Re-check and prompt for client selection if needed (as per PRD/Tech Spec)
+    const supportedClients = Object.keys(clientMappings);
+    const readline = require('readline').create('input', process.stdin, 'output', process.stdout);
+
+    let currentClients = getConfigValue('clients.selected').value || [];
+    const clientPrompt = `Select target clients (comma-separated, e.g., VS Code, Cursor) [Available: ${supportedClients.join(', ')}] [Current: ${currentClients.join(', ')}]: `;
+
+    const clientAnswer = await new Promise(resolve => {
+      readline.question(clientPrompt, input => {
+        readline.close();
+        resolve(input);
+      });
+    });
+
+    let finalSelectedClients = currentClients;
+    if (clientAnswer) {
+      const newSelectedClients = clientAnswer.split(',').map(c => c.trim()).filter(c => supportedClients.includes(c));
+      saveNonSecretToConfig('clients.selected', newSelectedClients);
+      finalSelectedClients = newSelectedClients;
+    }
+
+    distributeConfigToClients(finalSelectedClients);
+    console.log('Configuration update complete.');
   });
 
 program.parse(process.argv);

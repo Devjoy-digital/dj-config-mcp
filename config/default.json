@@ -1,0 +1,10 @@
+{
+  "clients": {
+    "selected": [
+      "VS Code",
+      "Claude Code",
+      "Claude Desktop",
+      "Cursor"
+    ]
+  }
+}
