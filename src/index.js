@@ -230,14 +230,5 @@ program
     }
   });
 
-// Config UI command
-program
-  .command('config-ui')
-  .option('-p, --port <port>', 'Port for web UI', '3456')
-  .description('Launch web configuration interface')
-  .action((options) => {
-    const configUI = require('./config-ui-server');
-    configUI.start(options.port);
-  });
 
 program.parse(process.argv);
