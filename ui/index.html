@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP Configuration Manager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>MCP Configuration Manager</h1>
+      <div class="header-actions">
+        <input type="text" id="search" placeholder="Search configurations..." class="search-input">
+        <button class="btn btn-primary" onclick="showAddDialog()">+ Add Config</button>
+      </div>
+    </header>
+
+    <!-- Error Panel -->
+    <div id="error-panel" class="error-panel" style="display: none;">
+      <div class="error-header">
+        <span class="error-title">Errors</span>
+        <button class="error-close" onclick="clearErrors()">×</button>
+      </div>
+      <div id="error-list" class="error-list"></div>
+    </div>
+
+    <!-- Success Messages -->
+    <div id="success-panel" class="success-panel" style="display: none;">
+      <div class="success-content">
+        <span id="success-message"></span>
+        <button class="success-close" onclick="hideSuccess()">×</button>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading" class="loading-overlay" style="display: none;">
+      <div class="spinner"></div>
+      <p>Loading configurations...</p>
+    </div>
+
+    <!-- Configuration Groups -->
+    <div id="config-container" class="config-container">
+      <!-- Config groups will be dynamically inserted here -->
+    </div>
+
+    <!-- Actions Bar -->
+    <div class="actions-bar">
+      <button class="btn btn-secondary" onclick="exportConfig()">Export</button>
+      <label class="btn btn-secondary">
+        Import
+        <input type="file" accept=".json" onchange="importConfig(event)" style="display: none;">
+      </label>
+      <button class="btn btn-secondary" onclick="refreshConfigs()">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Add/Edit Dialog -->
+  <div id="dialog-overlay" class="dialog-overlay" style="display: none;" onclick="hideDialog()">
+    <div class="dialog" onclick="event.stopPropagation()">
+      <h2 id="dialog-title">Add Configuration</h2>
+      <form id="config-form" onsubmit="saveConfig(event)">
+        <div class="form-group">
+          <label for="config-key">Configuration Key</label>
+          <input type="text" id="config-key" name="key" required 
+                 placeholder="e.g., server.port, api.endpoint">
+          <span class="form-hint">Use dot notation for nested values</span>
+        </div>
+        
+        <div class="form-group">
+          <label for="config-value">Value</label>
+          <input type="text" id="config-value" name="value" required>
+          <span id="value-error" class="form-error"></span>
+        </div>
+        
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="config-global" name="isGlobal">
+            Save as global configuration
+          </label>
+        </div>
+        
+        <div class="dialog-actions">
+          <button type="button" class="btn btn-secondary" onclick="hideDialog()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div id="delete-dialog" class="dialog-overlay" style="display: none;" onclick="hideDeleteDialog()">
+    <div class="dialog dialog-small" onclick="event.stopPropagation()">
+      <h2>Delete Configuration</h2>
+      <p>Are you sure you want to delete <strong id="delete-key-name"></strong>?</p>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" onclick="hideDeleteDialog()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
