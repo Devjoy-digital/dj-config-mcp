@@ -1,0 +1,71 @@
+{
+  "clients": {
+    "vscode": {
+      "name": "Visual Studio Code",
+      "paths": {
+        "win32": "${USERPROFILE}/.mcp.json",
+        "darwin": "${HOME}/.mcp.json",
+        "linux": "${HOME}/.mcp.json"
+      },
+      "configFile": ".mcp.json",
+      "autoLoadEnv": true
+    },
+    "claude-code": {
+      "name": "Claude Code",
+      "paths": {
+        "win32": "${USERPROFILE}/.claude.json",
+        "darwin": "${HOME}/.claude.json",
+        "linux": "${HOME}/.claude.json"
+      },
+      "configFile": ".claude.json",
+      "autoLoadEnv": false
+    },
+    "claude-desktop": {
+      "name": "Claude Desktop",
+      "paths": {
+        "win32": "${APPDATA}/Claude/claude_desktop_config.json",
+        "darwin": "${HOME}/Library/Application Support/Claude/claude_desktop_config.json",
+        "linux": "${HOME}/.config/Claude/claude_desktop_config.json"
+      },
+      "configFile": "claude_desktop_config.json",
+      "autoLoadEnv": false
+    },
+    "cursor": {
+      "name": "Cursor",
+      "paths": {
+        "win32": "${USERPROFILE}/.cursor/mcp.json",
+        "darwin": "${HOME}/.cursor/mcp.json",
+        "linux": "${HOME}/.cursor/mcp.json"
+      },
+      "configFile": "mcp.json",
+      "autoLoadEnv": true
+    }
+  },
+  "storage": {
+    "local": {
+      "json": "./devjoy-digital/${SERVER_NAME}/default.json",
+      "env": "./devjoy-digital/${SERVER_NAME}/.env"
+    },
+    "global": {
+      "json": {
+        "win32": "${APPDATA}/devjoy-digital/${SERVER_NAME}/global.json",
+        "darwin": "${HOME}/Library/Application Support/devjoy-digital/${SERVER_NAME}/global.json",
+        "linux": "${HOME}/.config/devjoy-digital/${SERVER_NAME}/global.json"
+      },
+      "env": {
+        "win32": "${APPDATA}/devjoy-digital/${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/devjoy-digital/${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/devjoy-digital/${SERVER_NAME}/.env"
+      }
+    }
+  },
+  "sensitivePatterns": [
+    "password",
+    "secret",
+    "key",
+    "token",
+    "auth",
+    "credential",
+    "private"
+  ]
+}

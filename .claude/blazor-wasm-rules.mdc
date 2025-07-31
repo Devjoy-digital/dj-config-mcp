@@ -1,0 +1,10 @@
+---
+description: Blazor WebAssembly component patterns and architecture
+globs: "**/*.razor", "**/*.razor.cs"
+---
+
+# Blazor WebAssembly Development Rules
+
+This file references the main rules. Please see: ../agents/blazor-wasm-rules.mdc
+
+The actual rules are maintained in the agents directory to ensure consistency across all AI clients.

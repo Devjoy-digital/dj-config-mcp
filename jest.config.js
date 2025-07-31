@@ -3,8 +3,9 @@ module.exports = {
   testTimeout: 10000, // 10 seconds per test
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
-    'src/**/*.js',
-    '!src/**/*.test.js',
+    'index.js',
+    'lib/**/*.js',
+    '!**/*.test.js',
     '!**/node_modules/**'
   ],
   coverageThreshold: {

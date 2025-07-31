@@ -1,0 +1,5 @@
+# Tailwind CSS Styling Guidelines
+
+This file references the main rules. Please see: ../agents/css-rules.mdc
+
+The actual rules are maintained in the agents directory to ensure consistency across all AI clients.

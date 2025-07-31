@@ -1,0 +1,10 @@
+---
+description: Core C# coding standards and conventions
+globs: "**/*.cs"
+---
+
+# C# Development Rules
+
+This file references the main rules. Please see: ../agents/csharp-rules.mdc
+
+The actual rules are maintained in the agents directory to ensure consistency across all AI clients.

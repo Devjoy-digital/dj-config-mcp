@@ -11,7 +11,10 @@
       "Bash(npm run test:coverage:*)",
       "Bash(npm pack:*)",
       "Bash(mkdir:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(true)",
+      "Bash(npm run build:*)",
+      "Bash(npm publish:*)"
     ],
     "deny": []
   }

@@ -1,103 +1,130 @@
-# dj-mcp-config
+# dj-config-mcp
 
-A simple configuration management utility for MCP (Model Context Protocol) servers. This package provides an easy way to manage configuration values, automatically handling sensitive data securely.
+A configuration management library for MCP (Model Context Protocol) servers. This library provides MCP servers with configuration management capabilities, including automatic sensitive data detection, dual storage system, and client distribution.
 
 ## Features
 
+- **Library for MCP Servers**: Import into your MCP server to add configuration management capabilities
 - **Automatic Sensitive Data Detection**: Automatically detects and secures values containing terms like "password", "secret", "key", "token", "auth", "credential", or "private"
-- **Dual Storage**: 
+- **Dual Storage System**: 
   - Sensitive values → `.env` file (as environment variables)
-  - Non-sensitive values → `config/default.json`
+  - Non-sensitive values → `mcp-servers/default.json`
+- **Environment Loading**: Built-in support for loading .env files for clients that don't auto-load them
 - **Local and Global Configs**: Support for both project-local and system-wide global configurations
 - **Client Distribution**: Automatically distribute configurations to supported MCP clients (VS Code, Claude Code, Claude Desktop, Cursor)
-- **Simple CLI**: Easy-to-use command-line interface
 
 ## Installation
 
-```bash
-npm install dj-mcp-config
-```
-
-## Usage
-
-### Commands
-
-#### `mcp-config config`
-Interactive configuration setup wizard. Prompts for common configuration values.
+MCP server developers install this library as a dependency:
 
 ```bash
-npx mcp-config config
+npm install dj-config-mcp
 ```
 
-Use the `-g` flag to modify global configuration:
-```bash
-npx mcp-config config -g
+## Usage in MCP Servers
+
+### Integration Example
+
+```javascript
+// In your MCP server code
+const djConfig = require('dj-config-mcp');
+
+// Load environment variables on startup
+await djConfig.loadEnv();
+
+// In your command handler
+async function handleCommand(command, args) {
+  switch(command) {
+    case 'config':
+      return await djConfig.config(args);
+    
+    case 'config-set':
+      return await djConfig.configSet(args.key, args.value, args.options);
+    
+    case 'config-get':
+      return await djConfig.configGet(args.key);
+    
+    case 'config-delete':
+      return await djConfig.configDelete(args.key, args.options);
+    
+    case 'config-load-env':
+      return await djConfig.loadEnv();
+    
+    // ... your other MCP server commands
+  }
+}
 ```
 
-#### `mcp-config config-set <key> <value>`
-Set a specific configuration value.
+### API Methods
 
-```bash
-# Set a non-sensitive value
-npx mcp-config config-set server.port 3000
+#### `djConfig.config(options)`
+Interactive configuration wizard for setting up common values.
 
-# Set a sensitive value (automatically saved to .env)
-npx mcp-config config-set api.secret "my-secret-key"
-
-# Set global config
-npx mcp-config config-set -g global.setting "value"
+```javascript
+// Run interactive configuration
+await djConfig.config({ global: false });
 ```
 
-#### `mcp-config config-get [key]`
+#### `djConfig.configSet(key, value, options)`
+Set a configuration value.
+
+```javascript
+// Set a non-sensitive value
+await djConfig.configSet('server.port', 3000);
+
+// Set a sensitive value (automatically saved to .env)
+await djConfig.configSet('api.secret', 'my-secret-key');
+
+// Set global config
+await djConfig.configSet('global.setting', 'value', { global: true });
+```
+
+#### `djConfig.configGet(key)`
 Retrieve configuration values.
 
-```bash
-# Get a specific value
-npx mcp-config config-get server.port
+```javascript
+// Get a specific value
+const result = await djConfig.configGet('server.port');
+console.log(result); // { key: 'server.port', value: 3000, source: 'Local Config', path: './mcp-servers/default.json' }
 
-# Get all configuration values
-npx mcp-config config-get
+// Get all configuration values
+const allConfigs = await djConfig.configGet();
 ```
 
-#### `mcp-config config-delete <key>`
+#### `djConfig.configDelete(key, options)`
 Remove a configuration value.
 
-```bash
-# Delete a configuration value
-npx mcp-config config-delete server.port
+```javascript
+// Delete a configuration value
+await djConfig.configDelete('server.port');
 
-# Delete from global config
-npx mcp-config config-delete -g global.setting
+// Delete from global config
+await djConfig.configDelete('global.setting', { global: true });
 ```
 
-#### `mcp-config config-ui`
-Launch a web-based configuration interface with error handling and real-time updates.
+#### `djConfig.loadEnv()`
+Load environment variables from .env files. This is called automatically on initialization but can be called manually for clients that don't auto-load .env files.
 
-```bash
-# Launch on default port (3456)
-npx mcp-config config-ui
-
-# Launch on custom port
-npx mcp-config config-ui -p 8080
+```javascript
+// Load environment variables
+await djConfig.loadEnv();
 ```
-
-Features:
-- Visual configuration management
-- Error message panel for validation feedback
-- Real-time updates via WebSocket
-- Import/Export functionality
-- Grouped configuration display
-- Sensitive value protection
 
 ## Configuration Storage
 
 ### Local Configuration
-- **Non-sensitive values**: `./config/default.json`
-- **Sensitive values**: `./.env`
+- **Non-sensitive values**: `./mcp-servers/default.json`
+- **Sensitive values**: `./mcp-servers/.env`
 
 ### Global Configuration
-- **Windows**: `%USERPROFILE%\.mcp-config\global.json`
-- **macOS/Linux**: `~/.mcp-config/global.json`
+- **Windows**: `%APPDATA%\mcp-servers\` (global.json, .env)
+- **macOS**: `~/Library/Application Support/mcp-servers/` (global.json, .env)
+- **Linux**: `~/.config/mcp-servers/` (global.json, .env)
+
+### Library Configuration
+- **Windows**: `%APPDATA%\devjoy-digital\config-mcp\client-mappings.json`
+- **macOS**: `~/Library/Application Support/devjoy-digital/config-mcp/client-mappings.json`
+- **Linux**: `~/.config/devjoy-digital/config-mcp/client-mappings.json`
 
 ### Configuration Hierarchy
 Values are resolved in this order (first found wins):
@@ -114,45 +141,69 @@ Sensitive values are:
 - Stored in `.env` file as uppercase environment variables
 - Never stored in JSON config files
 - Automatically converted (e.g., `api.secret` → `API_SECRET`)
+- Protected with appropriate file permissions
+- Automatically added to .gitignore
 
 ## Client Distribution
 
 When using local configuration, changes are automatically distributed to configured MCP clients:
-- **VS Code**: Application-specific config directory
-- **Claude Code**: Application-specific config directory  
-- **Claude Desktop**: Application-specific config directory
-- **Cursor**: Application-specific config directory
+- **VS Code**: Auto-loads .env files
+- **Claude Code**: Requires manual env loading
+- **Claude Desktop**: Requires manual env loading
+- **Cursor**: Auto-loads .env files
 
-## Example
+## Client Mappings Configuration
 
-```bash
-# Set up a new MCP server configuration
-npx mcp-config config-set server.name "My MCP Server"
-npx mcp-config config-set server.port 3000
-npx mcp-config config-set api.key "sk-1234567890"  # Automatically saved to .env
+The library stores its own configuration (client path mappings) in a platform-specific location. The default mappings are defined in `config/default-client-mappings.json`. When the library runs for the first time, it copies these defaults to the user's configuration directory where they can be customized:
 
-# Check configuration
-npx mcp-config config-get
-
-# Output:
-# All Configurations:
-#   server.name: My MCP Server (Source: Local Config File)
-#   server.port: 3000 (Source: Local Config File)
-#   api.key: sk-1234567890 (Source: Environment Variable)
+```json
+{
+  "clients": {
+    "custom-client": {
+      "name": "My Custom Client",
+      "paths": {
+        "win32": "${APPDATA}/custom-client/mcp-servers",
+        "darwin": "${HOME}/Library/Application Support/custom-client/mcp-servers",
+        "linux": "${HOME}/.config/custom-client/mcp-servers"
+      },
+      "configFile": "config.json",
+      "autoLoadEnv": false
+    }
+  },
+  "sensitivePatterns": ["password", "secret", "key", "token", "auth", "credential", "private"]
+}
 ```
 
-## Use in MCP Servers
-
-This package is designed to be embedded in other MCP servers. You can use it programmatically:
+## Example MCP Server Implementation
 
 ```javascript
-const { execSync } = require('child_process');
+const djConfig = require('dj-config-mcp');
 
-// Set a configuration value
-execSync('npx mcp-config config-set myserver.setting "value"');
+// MCP server initialization
+async function initialize() {
+  // Load environment variables
+  await djConfig.loadEnv();
+  
+  // Use configuration values
+  const apiKey = process.env.API_KEY;
+  const serverConfig = await djConfig.configGet('server');
+}
 
-// Retrieve a configuration value
-const output = execSync('npx mcp-config config-get myserver.setting', { encoding: 'utf8' });
+// Command handler
+async function handleUserCommand(command, args) {
+  // Expose configuration commands to users
+  if (command.startsWith('config')) {
+    switch(command) {
+      case 'config':
+        return await djConfig.config(args);
+      case 'config-set':
+        return await djConfig.configSet(args.key, args.value, args.options);
+      // ... other config commands
+    }
+  }
+  
+  // Your other MCP server commands
+}
 ```
 
 ## License

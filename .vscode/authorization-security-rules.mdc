@@ -1,0 +1,10 @@
+---
+description: Authorization and security patterns using decorators and domain services
+globs: "**/*.cs"
+---
+
+# Authorization and Security Rules
+
+This file references the main rules. Please see: ../agents/authorization-security-rules.mdc
+
+The actual rules are maintained in the agents directory to ensure consistency across all AI clients.

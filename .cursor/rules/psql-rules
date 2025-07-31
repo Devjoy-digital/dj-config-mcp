@@ -1,0 +1,10 @@
+---
+description: PostgreSQL query patterns focused on readability
+globs: "**/*.sql", "**/*.cs"
+---
+
+# PostgreSQL Query Rules
+
+This file references the main rules. Please see: ../../agents/psql-rules
+
+The actual rules are maintained in the agents directory to ensure consistency across all AI clients.
