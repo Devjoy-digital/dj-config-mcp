@@ -85,15 +85,22 @@ describe('ClientRegistry', () => {
       
       const mappings = await registry.loadMappings();
       
-      expect(mappings).toHaveProperty('global-paths');
-      expect(mappings).toHaveProperty('local-paths');
+      // Check for client-first structure
+      expect(mappings).toHaveProperty('vscode');
       expect(mappings).toHaveProperty('sensitivePatterns');
+      expect(mappings.vscode).toHaveProperty('name');
+      expect(mappings.vscode).toHaveProperty('global');
+      expect(mappings.vscode).toHaveProperty('local');
     });
 
     test('should cache mappings after first load', async () => {
       const mockMappings = {
-        'global-paths': { test: {} },
-        'local-paths': { test: {} }
+        'vscode': { 
+          name: 'Visual Studio Code',
+          global: { 'config-path': {} },
+          local: { 'config-path': {} }
+        },
+        'sensitivePatterns': []
       };
       
       jest.spyOn(fs, 'readFile').mockResolvedValue(JSON.stringify(mockMappings));
@@ -104,23 +111,44 @@ describe('ClientRegistry', () => {
       expect(fs.readFile).toHaveBeenCalledTimes(1);
     });
 
-    test('should overwrite old format with new format', async () => {
-      const oldFormat = {
-        clients: { vscode: {} }
+    test('should convert legacy structure to new structure', async () => {
+      const legacyFormat = {
+        'global-paths': {
+          'vscode': {
+            name: 'Visual Studio Code',
+            'config-path': { 'win32': 'test' },
+            'env-path': { 'win32': 'test' },
+            configKey: 'mcp-servers',
+            autoLoadEnv: true
+          }
+        },
+        'local-paths': {
+          'vscode': {
+            name: 'Visual Studio Code',
+            'config-path': { 'win32': 'test-local' },
+            'env-path': { 'win32': 'test-local' },
+            configKey: 'mcp-servers',
+            autoLoadEnv: true
+          }
+        },
+        'sensitivePatterns': ['password']
       };
       
-      jest.spyOn(fs, 'readFile').mockResolvedValue(JSON.stringify(oldFormat));
+      jest.spyOn(fs, 'readFile').mockResolvedValue(JSON.stringify(legacyFormat));
       jest.spyOn(fs, 'mkdir').mockResolvedValue();
       const writeFileSpy = jest.spyOn(fs, 'writeFile').mockResolvedValue();
       
       const mappings = await registry.loadMappings();
       
-      // Should have new structure
-      expect(mappings).toHaveProperty('global-paths');
-      expect(mappings).toHaveProperty('local-paths');
-      expect(mappings).not.toHaveProperty('clients');
+      // Should have new client-first structure
+      expect(mappings).toHaveProperty('vscode');
+      expect(mappings.vscode).toHaveProperty('global');
+      expect(mappings.vscode).toHaveProperty('local');
+      expect(mappings.vscode.global).toHaveProperty('config-path');
+      expect(mappings.vscode.local).toHaveProperty('config-path');
+      expect(mappings).toHaveProperty('sensitivePatterns');
       
-      // Should have saved the new format (overwriting old)
+      // Should have saved the new format
       expect(writeFileSpy).toHaveBeenCalled();
     });
   });
@@ -129,10 +157,12 @@ describe('ClientRegistry', () => {
     test('should return default mappings structure', () => {
       const defaults = registry.getDefaultMappings();
       
-      expect(defaults).toHaveProperty('global-paths');
-      expect(defaults).toHaveProperty('local-paths');
+      // Check for client-first structure
+      expect(defaults).toHaveProperty('vscode');
       expect(defaults).toHaveProperty('sensitivePatterns');
       expect(Array.isArray(defaults.sensitivePatterns)).toBe(true);
+      expect(defaults.vscode).toHaveProperty('global');
+      expect(defaults.vscode).toHaveProperty('local');
     });
 
     test('should handle error loading default config file', () => {
@@ -143,25 +173,24 @@ describe('ClientRegistry', () => {
       
       const defaults = registry.getDefaultMappings();
       
-      expect(defaults).toHaveProperty('global-paths');
-      expect(defaults['global-paths']).toHaveProperty('vscode');
+      expect(defaults).toHaveProperty('vscode');
+      expect(defaults.vscode).toHaveProperty('name', 'Visual Studio Code');
     });
   });
 
   describe('getClientConfigPath', () => {
     beforeEach(async () => {
       const mockMappings = {
-        'global-paths': {
-          'test-client': {
+        'test-client': {
+          name: 'Test Client',
+          global: {
             'config-path': {
               'win32': '${APPDATA}/TestClient/config.json',
               'darwin': '${HOME}/Library/TestClient/config.json',
               'linux': '${HOME}/.config/TestClient/config.json'
             }
-          }
-        },
-        'local-paths': {
-          'test-client': {
+          },
+          local: {
             'config-path': {
               'win32': './.testclient/config.json',
               'darwin': './.testclient/config.json',
@@ -196,7 +225,7 @@ describe('ClientRegistry', () => {
     });
 
     test('should throw ConfigurationError for missing platform config', async () => {
-      registry.mappings['global-paths']['test-client']['config-path'] = {};
+      registry.mappings['test-client'].global['config-path'] = {};
       
       await expect(registry.getClientConfigPath('test-client', true))
         .rejects.toThrow(ConfigurationError);
@@ -206,16 +235,17 @@ describe('ClientRegistry', () => {
   describe('getClientEnvPath', () => {
     beforeEach(async () => {
       const mockMappings = {
-        'global-paths': {
-          'test-client': {
+        'test-client': {
+          name: 'Test Client',
+          global: {
             'env-path': {
               'win32': '${APPDATA}/TestClient/.env',
               'darwin': '${HOME}/Library/TestClient/.env',
               'linux': '${HOME}/.config/TestClient/.env'
             }
-          }
-        },
-        'local-paths': {}
+          },
+          local: {}
+        }
       };
       
       registry.mappings = mockMappings;
@@ -232,7 +262,7 @@ describe('ClientRegistry', () => {
     });
 
     test('should throw ConfigurationError for missing env-path', async () => {
-      delete registry.mappings['global-paths']['test-client']['env-path'];
+      delete registry.mappings['test-client'].global['env-path'];
       
       await expect(registry.getClientEnvPath('test-client', true))
         .rejects.toThrow(ConfigurationError);
@@ -242,9 +272,9 @@ describe('ClientRegistry', () => {
   describe('getClientPath', () => {
     test('should default to global path', async () => {
       registry.mappings = {
-        'global-paths': {
-          'test': {
-            name: 'Test Client',
+        'test': {
+          name: 'Test Client',
+          global: {
             'config-path': {
               [process.platform]: '/test/path'
             }
@@ -260,25 +290,29 @@ describe('ClientRegistry', () => {
   describe('getClientConfig', () => {
     beforeEach(() => {
       registry.mappings = {
-        'global-paths': {
-          'test-client': { name: 'Test Client' }
-        },
-        'local-paths': {}
+        'test-client': { 
+          name: 'Test Client',
+          configKey: 'mcp-servers',
+          autoLoadEnv: true,
+          global: {
+            'config-path': { 'win32': 'test' },
+            'env-path': { 'win32': 'test' }
+          }
+        }
       };
     });
 
     test('should return client configuration', async () => {
       const config = await registry.getClientConfig('test-client', true);
-      expect(config).toEqual({ name: 'Test Client' });
+      expect(config.name).toBe('Test Client');
+      expect(config.configKey).toBe('mcp-servers');
+      expect(config.autoLoadEnv).toBe(true);
     });
 
     test('should return null for unknown client', async () => {
-      registry.mappings = {
-        'global-paths': {},
-        'local-paths': {}
-      };
+      registry.mappings = {};
       const config = await registry.getClientConfig('unknown', true);
-      expect(config).toBeUndefined();
+      expect(config).toBe(null);
     });
   });
 
@@ -302,10 +336,9 @@ describe('ClientRegistry', () => {
   describe('getAvailableClients', () => {
     test('should return list of available clients', async () => {
       registry.mappings = {
-        'global-paths': {
-          'client1': { name: 'Client 1', autoLoadEnv: true },
-          'client2': { name: 'Client 2', autoLoadEnv: false }
-        }
+        'client1': { name: 'Client 1', autoLoadEnv: true },
+        'client2': { name: 'Client 2', autoLoadEnv: false },
+        'sensitivePatterns': ['password'] // Should be excluded
       };
       
       const clients = await registry.getAvailableClients();
@@ -323,8 +356,8 @@ describe('ClientRegistry', () => {
       });
     });
 
-    test('should handle missing global-paths', async () => {
-      registry.mappings = {};
+    test('should handle empty mappings', async () => {
+      registry.mappings = { sensitivePatterns: [] };
       
       const clients = await registry.getAvailableClients();
       expect(clients).toEqual([]);
@@ -359,36 +392,23 @@ describe('ClientRegistry', () => {
   describe('addClient', () => {
     beforeEach(() => {
       registry.mappings = {
-        'global-paths': {},
-        'local-paths': {}
+        'existing-client': { name: 'Existing' },
+        'sensitivePatterns': []
       };
       jest.spyOn(registry, 'saveMappings').mockResolvedValue();
     });
 
-    test('should add client to global paths', async () => {
-      const clientConfig = { name: 'New Client' };
+    test('should add client directly to mappings', async () => {
+      const clientConfig = { 
+        name: 'New Client',
+        global: { 'config-path': {} },
+        local: { 'config-path': {} }
+      };
       
-      await registry.addClient('new-client', clientConfig, true);
+      await registry.addClient('new-client', clientConfig);
       
-      expect(registry.mappings['global-paths']['new-client']).toEqual(clientConfig);
+      expect(registry.mappings['new-client']).toEqual(clientConfig);
       expect(registry.saveMappings).toHaveBeenCalled();
-    });
-
-    test('should add client to local paths', async () => {
-      const clientConfig = { name: 'New Client' };
-      
-      await registry.addClient('new-client', clientConfig, false);
-      
-      expect(registry.mappings['local-paths']['new-client']).toEqual(clientConfig);
-    });
-
-    test('should create paths section if missing', async () => {
-      delete registry.mappings['global-paths'];
-      
-      await registry.addClient('new-client', {}, true);
-      
-      expect(registry.mappings['global-paths']).toBeDefined();
-      expect(registry.mappings['global-paths']['new-client']).toBeDefined();
     });
   });
 
@@ -402,8 +422,7 @@ describe('ClientRegistry', () => {
       
       // Set mappings directly
       const testMappings = {
-        'global-paths': { test: 'data' },
-        'local-paths': {},
+        'vscode': { name: 'Visual Studio Code' },
         'sensitivePatterns': ['password', 'secret']
       };
       registry.mappings = testMappings;
@@ -413,9 +432,8 @@ describe('ClientRegistry', () => {
       
       const saved = JSON.parse(await fs.readFile(registry.libraryConfigPath, 'utf8'));
       
-      // Now we only expect the new structure
-      expect(saved).toHaveProperty('global-paths');
-      expect(saved['global-paths']).toHaveProperty('test', 'data');
+      expect(saved).toHaveProperty('vscode');
+      expect(saved.vscode).toHaveProperty('name', 'Visual Studio Code');
       expect(saved).toHaveProperty('sensitivePatterns');
     });
 
@@ -427,8 +445,7 @@ describe('ClientRegistry', () => {
       
       // Set mappings directly
       const testMappings = {
-        'global-paths': { test: 'data' },
-        'local-paths': {},
+        'vscode': { name: 'Visual Studio Code' },
         'sensitivePatterns': []
       };
       registry.mappings = testMappings;
@@ -438,9 +455,8 @@ describe('ClientRegistry', () => {
       
       const saved = JSON.parse(await fs.readFile(registry.libraryConfigPath, 'utf8'));
       
-      // Now we only expect the new structure
-      expect(saved).toHaveProperty('global-paths');
-      expect(saved['global-paths']).toHaveProperty('test', 'data');
+      expect(saved).toHaveProperty('vscode');
+      expect(saved.vscode).toHaveProperty('name', 'Visual Studio Code');
     });
 
     test('should do nothing if mappings is null', async () => {

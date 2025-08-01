@@ -154,25 +154,92 @@ When using local configuration, changes are automatically distributed to configu
 
 ## Client Mappings Configuration
 
-The library stores its own configuration (client path mappings) in a platform-specific location. The default mappings are defined in `config/default-client-mappings.json`. When the library runs for the first time, it copies these defaults to the user's configuration directory where they can be customized:
+The library stores its own configuration (client path mappings) in a platform-specific location. The default mappings are defined in `config/default-client-mappings.json`. When the library runs for the first time, it copies these defaults to the user's configuration directory where they can be customized.
+
+The configuration uses a client-first structure where each client has both global and local path configurations:
 
 ```json
 {
-  "clients": {
-    "custom-client": {
-      "name": "My Custom Client",
-      "paths": {
-        "win32": "${APPDATA}/custom-client/mcp-servers",
-        "darwin": "${HOME}/Library/Application Support/custom-client/mcp-servers",
-        "linux": "${HOME}/.config/custom-client/mcp-servers"
+  "vscode": {
+    "name": "Visual Studio Code",
+    "configKey": "mcp-servers",
+    "autoLoadEnv": true,
+    "configFormat": "structured",
+    "global": {
+      "config-path": {
+        "win32": "${APPDATA}/Code/User/settings.json",
+        "darwin": "${HOME}/Library/Application Support/Code/User/settings.json",
+        "linux": "${HOME}/.config/Code/User/settings.json"
       },
-      "configFile": "config.json",
-      "autoLoadEnv": false
+      "env-path": {
+        "win32": "${APPDATA}/Code/User/.${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/Code/User/.${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/Code/User/.${SERVER_NAME}/.env"
+      }
+    },
+    "local": {
+      "config-path": {
+        "win32": "./.vscode/settings.json",
+        "darwin": "./.vscode/settings.json",
+        "linux": "./.vscode/settings.json"
+      },
+      "env-path": {
+        "win32": "./.vscode/.${SERVER_NAME}/.env",
+        "darwin": "./.vscode/.${SERVER_NAME}/.env",
+        "linux": "./.vscode/.${SERVER_NAME}/.env"
+      }
+    }
+  },
+  "claude-desktop": {
+    "name": "Claude",
+    "configKey": "mcp-servers",
+    "autoLoadEnv": false,
+    "envFormat": "${env:${VAR}}",
+    "global": {
+      "config-path": {
+        "win32": "${APPDATA}/Claude/claude_desktop_config.json",
+        "darwin": "${HOME}/Library/Application Support/Claude/claude_desktop_config.json",
+        "linux": "${HOME}/.config/Claude/claude_desktop_config.json"
+      },
+      "env-path": {
+        "win32": "${APPDATA}/Claude/.${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/Claude/.${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/Claude/.${SERVER_NAME}/.env"
+      }
+    },
+    "local": {
+      "config-path": {
+        "win32": "${APPDATA}/Claude/claude_desktop_config.json",
+        "darwin": "${HOME}/Library/Application Support/Claude/claude_desktop_config.json",
+        "linux": "${HOME}/.config/Claude/claude_desktop_config.json"
+      },
+      "env-path": {
+        "win32": "${APPDATA}/Claude/.${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/Claude/.${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/Claude/.${SERVER_NAME}/.env"
+      }
     }
   },
   "sensitivePatterns": ["password", "secret", "key", "token", "auth", "credential", "private"]
 }
 ```
+
+### Client Configuration Properties
+
+- **name**: Display name for the client
+- **configKey**: Key used in the client's configuration file (usually "mcp-servers")
+- **autoLoadEnv**: Whether the client automatically loads .env files
+- **configFormat**: Configuration format ("structured" for VS Code/Cursor, "default" for others)
+- **envFormat**: Environment variable reference format (e.g., "${env:${VAR}}" for Claude)
+- **global**: Global (system-wide) configuration paths
+- **local**: Local (project-specific) configuration paths
+
+### Path Templates
+
+Path templates support environment variable substitution:
+- **${HOME}**: User's home directory
+- **${APPDATA}**: Windows AppData/Roaming directory
+- **${SERVER_NAME}**: Name of the MCP server (for env file paths)
 
 ## Example MCP Server Implementation
 
