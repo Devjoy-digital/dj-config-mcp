@@ -1,7 +1,62 @@
+# Dependencies
 node_modules/
+
+# Coverage reports
 coverage/
+
+# Environment files
 .env
+.env.test
+.env.local
+.env.production
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# All subdirectories starting with '.'
+.*/
+
+# Project documentation
+PRD.md
+TECH_SPEC.md
+
+# Application specific
+devjoy-digital/
+test-fix.js
 mcp-servers/.env
 .mcp-servers/
+
+# IDE and editor files
+*.swp
+*.swo
+*~
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity

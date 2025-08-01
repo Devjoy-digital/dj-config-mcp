@@ -1,6 +1,6 @@
 {
   "name": "dj-config-mcp",
-  "version": "0.9.7",
+  "version": "0.9.13",
   "main": "index.js",
   "scripts": {
     "test": "jest --forceExit --detectOpenHandles",

@@ -25,7 +25,7 @@ module.exports = {
   /**
    * Interactive configuration wizard
    * @param {Object} options
-   * @param {boolean} options.global - Use global configuration
+   * @param {boolean} options.isGlobal - Use global configuration
    * @returns {Promise<void>}
    */
   config: async (options = {}) => {
@@ -38,7 +38,7 @@ module.exports = {
    * @param {string} key - Configuration key (supports dot notation)
    * @param {any} value - Configuration value
    * @param {Object} options
-   * @param {boolean} options.global - Use global configuration
+   * @param {boolean} options.isGlobal - Use global configuration
    * @returns {Promise<void>}
    */
   configSet: async (key, value, options = {}) => {
@@ -60,7 +60,7 @@ module.exports = {
    * Delete a configuration value
    * @param {string} key - Configuration key to delete
    * @param {Object} options
-   * @param {boolean} options.global - Use global configuration
+   * @param {boolean} options.isGlobal - Use global configuration
    * @returns {Promise<void>}
    */
   configDelete: async (key, options = {}) => {

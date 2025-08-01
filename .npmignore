@@ -1,3 +1,6 @@
+# All subdirectories starting with '.'
+.*/
+
 # Development documentation
 PRD.md
 TECHNICAL_SPEC.md
@@ -9,13 +12,9 @@ jest.config.js
 coverage/
 
 # Development files
-.claude/
-.git/
 .gitignore
 
 # IDE files
-.vscode/
-.idea/
 *.swp
 *.swo
 
@@ -38,3 +37,7 @@ node_modules/
 dist/
 build/
 *.tgz
+
+# Application data
+devjoy-digital/
+test-fix.js

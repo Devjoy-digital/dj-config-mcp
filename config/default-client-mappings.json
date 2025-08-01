@@ -1,62 +1,134 @@
 {
-  "clients": {
+  "global-paths": {
     "vscode": {
       "name": "Visual Studio Code",
-      "paths": {
-        "win32": "${USERPROFILE}/.mcp.json",
-        "darwin": "${HOME}/.mcp.json",
-        "linux": "${HOME}/.mcp.json"
+      "config-path": {
+        "win32": "${APPDATA}/Code/User/settings.json",
+        "darwin": "${HOME}/Library/Application Support/Code/User/settings.json",
+        "linux": "${HOME}/.config/Code/User/settings.json"
       },
-      "configFile": ".mcp.json",
-      "autoLoadEnv": true
+      "env-path": {
+        "win32": "${APPDATA}/Code/User/.${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/Code/User/.${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/Code/User/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": true,
+      "configFormat": "structured"
     },
     "claude-code": {
       "name": "Claude Code",
-      "paths": {
-        "win32": "${USERPROFILE}/.claude.json",
-        "darwin": "${HOME}/.claude.json",
-        "linux": "${HOME}/.claude.json"
-      },
-      "configFile": ".claude.json",
-      "autoLoadEnv": false
-    },
-    "claude-desktop": {
-      "name": "Claude Desktop",
-      "paths": {
+      "config-path": {
         "win32": "${APPDATA}/Claude/claude_desktop_config.json",
         "darwin": "${HOME}/Library/Application Support/Claude/claude_desktop_config.json",
         "linux": "${HOME}/.config/Claude/claude_desktop_config.json"
       },
-      "configFile": "claude_desktop_config.json",
-      "autoLoadEnv": false
+      "env-path": {
+        "win32": "${APPDATA}/Claude/.${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/Claude/.${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/Claude/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": false,
+      "envFormat": "${env:${VAR}}"
+    },
+    "claude-desktop": {
+      "name": "Claude",
+      "config-path": {
+        "win32": "${APPDATA}/Claude/claude_desktop_config.json",
+        "darwin": "${HOME}/Library/Application Support/Claude/claude_desktop_config.json",
+        "linux": "${HOME}/.config/Claude/claude_desktop_config.json"
+      },
+      "env-path": {
+        "win32": "${APPDATA}/Claude/.${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/Claude/.${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/Claude/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": false,
+      "envFormat": "${env:${VAR}}"
     },
     "cursor": {
       "name": "Cursor",
-      "paths": {
-        "win32": "${USERPROFILE}/.cursor/mcp.json",
-        "darwin": "${HOME}/.cursor/mcp.json",
-        "linux": "${HOME}/.cursor/mcp.json"
+      "config-path": {
+        "win32": "${APPDATA}/Cursor/User/settings.json",
+        "darwin": "${HOME}/Library/Application Support/Cursor/User/settings.json",
+        "linux": "${HOME}/.config/Cursor/User/settings.json"
       },
-      "configFile": "mcp.json",
-      "autoLoadEnv": true
+      "env-path": {
+        "win32": "${APPDATA}/Cursor/User/.${SERVER_NAME}/.env",
+        "darwin": "${HOME}/Library/Application Support/Cursor/User/.${SERVER_NAME}/.env",
+        "linux": "${HOME}/.config/Cursor/User/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": true,
+      "envFormat": "${env:${VAR}}"
     }
   },
-  "storage": {
-    "local": {
-      "json": "./devjoy-digital/${SERVER_NAME}/default.json",
-      "env": "./devjoy-digital/${SERVER_NAME}/.env"
-    },
-    "global": {
-      "json": {
-        "win32": "${APPDATA}/devjoy-digital/${SERVER_NAME}/global.json",
-        "darwin": "${HOME}/Library/Application Support/devjoy-digital/${SERVER_NAME}/global.json",
-        "linux": "${HOME}/.config/devjoy-digital/${SERVER_NAME}/global.json"
+  "local-paths": {
+    "vscode": {
+      "name": "Visual Studio Code",
+      "config-path": {
+        "win32": "./.vscode/settings.json",
+        "darwin": "./.vscode/settings.json",
+        "linux": "./.vscode/settings.json"
       },
-      "env": {
-        "win32": "${APPDATA}/devjoy-digital/${SERVER_NAME}/.env",
-        "darwin": "${HOME}/Library/Application Support/devjoy-digital/${SERVER_NAME}/.env",
-        "linux": "${HOME}/.config/devjoy-digital/${SERVER_NAME}/.env"
-      }
+      "env-path": {
+        "win32": "./.vscode/.${SERVER_NAME}/.env",
+        "darwin": "./.vscode/.${SERVER_NAME}/.env",
+        "linux": "./.vscode/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": true,
+      "configFormat": "structured"
+    },
+    "claude-code": {
+      "name": "Claude Code",
+      "config-path": {
+        "win32": "./.claude/mcp-servers.json",
+        "darwin": "./.claude/mcp-servers.json",
+        "linux": "./.claude/mcp-servers.json"
+      },
+      "env-path": {
+        "win32": "./.devjoy-digital/.${SERVER_NAME}/.env",
+        "darwin": "./.devjoy-digital/.${SERVER_NAME}/.env",
+        "linux": "./.devjoy-digital/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": false,
+      "envFormat": "${env:${VAR}}"
+    },
+    "claude-desktop": {
+      "name": "Claude",
+      "config-path": {
+        "win32": "${APPDATA}/Claude/claude_desktop_config.json",
+        "darwin": "${HOME}/Library/Application Support/Claude/claude_desktop_config.json",
+        "linux": "${HOME}/.config/Claude/claude_desktop_config.json"
+      },
+      "env-path": {
+        "win32": "./.devjoy-digital/.${SERVER_NAME}/.env",
+        "darwin": "./.devjoy-digital/.${SERVER_NAME}/.env",
+        "linux": "./.devjoy-digital/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": false,
+      "envFormat": "${env:${VAR}}"
+    },
+    "cursor": {
+      "name": "Cursor",
+      "config-path": {
+        "win32": "./.cursor/mcp.json",
+        "darwin": "./.cursor/mcp.json",
+        "linux": "./.cursor/mcp.json"
+      },
+      "env-path": {
+        "win32": "./.devjoy-digital/.${SERVER_NAME}/.env",
+        "darwin": "./.devjoy-digital/.${SERVER_NAME}/.env",
+        "linux": "./.devjoy-digital/.${SERVER_NAME}/.env"
+      },
+      "configKey": "mcp-servers",
+      "autoLoadEnv": true,
+      "configFormat": "structured"
     }
   },
   "sensitivePatterns": [
